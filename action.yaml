@@ -1,0 +1,53 @@
+name: 'terraform-setup'
+description: ''
+inputs:
+  openvpn_config:
+    description: ''
+    required: true
+  vault_addr:
+    description: ''
+    required: true
+  vault_approle_role_id:
+    description: ''
+    required: true
+  vault_approle_secret_id:
+    description: ''
+    required: true
+  vault_tf_modules_key_path:
+    description: ''
+    required: true
+    default: secret/data/ssh/tf_modules
+  vault_gcp_roleset_path:
+    description: ''
+    required: true
+    default: gcp/terraform/roleset/terraform-states/token
+runs:
+  using: 'composite'
+  steps:
+    - name: Connect to VPN
+      uses: nodis-com-br/gha_openvpn@master
+      with:
+        openvpn_config: ${{ inputs.openvpn_config }}
+    - name: Import Secrets
+      uses: hashicorp/vault-action@v2.3.0
+      with:
+        url: ${{ inputs.vault_addr }}
+        method: approle
+        roleId: ${{ inputs.vault_approle_role_id }}
+        secretId: ${{ inputs.vault_approle_secret_id }}
+        exportToken: true
+        secrets: |
+          ${{ inputs.vault_tf_modules_key_path }} private | TF_MODULES_DEPLOY_KEY;
+          ${{ inputs.vault_gcp_roleset_path }} token | GCS_ACCESS_TOKEN;
+    - name: Configure ssh
+      uses: kielabokkie/ssh-key-and-known-hosts-action@v1
+      with:
+        ssh-private-key: ${{ env.TF_MODULES_DEPLOY_KEY }}
+        ssh-host: github.com
+    - name: Setup terraform
+      uses: hashicorp/setup-terraform@6727c6479875bfc368fd3a90d2d27091d96adf61
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+    - name: Initialize Terraform
+      run: terraform init -input=false -backend-config="access_token=${GCS_ACCESS_TOKEN}"
+      shell: bash
