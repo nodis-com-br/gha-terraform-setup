@@ -25,7 +25,7 @@ runs:
   using: 'composite'
   steps:
     - name: Connect to VPN
-      uses: nodis-com-br/gha_openvpn@master
+      uses: nodis-com-br/gha-openvpn@master
       with:
         openvpn_config: ${{ inputs.openvpn_config }}
     - name: Import Secrets
